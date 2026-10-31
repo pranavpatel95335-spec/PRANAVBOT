@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: pranav-super-ai-bot-v3
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        value: "8585055903"
+      - key: ADMIN_PANEL_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.9
