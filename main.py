@@ -4,7 +4,7 @@ import shutil
 import threading
 from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 
 # 1. Render ko 24/7 zinda rakhne ke liye Flask Web Server (Keep-Alive)
 app_web = Flask('')
@@ -25,6 +25,15 @@ def keep_alive():
 
 # 2. Telegram Bot & Auto-Patching Engine
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Jab user /start likhega, tab ye welcome message bhejega.
+    """
+    await update.message.reply_text(
+        "👋 स्वागत है प्रणव जी के APK पैचर बोट में!\n\n"
+        "⚡ अपनी .apk फाइल यहाँ भेजो, बोट उसके अंदर ऑटोमैटिक .dex फाइल और हुक सेट करके तुम्हें वापस दे देगा!"
+    )
 
 def patch_apk(input_apk, output_apk):
     """
@@ -98,6 +107,9 @@ def main():
     
     # Telegram Bot Build karo
     application = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    # Handlers add karna (/start aur APK document ke liye)
+    application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_apk))
     
     print("🤖 Pranav Master Bot 24/7 mode mein chalu ho gaya hai!")
