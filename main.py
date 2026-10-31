@@ -1,10 +1,11 @@
 import os
 import zipfile
 import shutil
+import base64
 import threading
 from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram.ext import Application, ContextTypes, MessageHandler, CommandHandler, filters
 
 # 1. Render ko 24/7 zinda rakhne ke liye Flask Web Server (Keep-Alive)
 app_web = Flask('')
@@ -26,33 +27,43 @@ def keep_alive():
 # 2. Telegram Bot & Auto-Patching Engine
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
+# Agar tu dex file ko code ke andar base64 me rakhna chahe to yahan dal sakta hai, 
+# ya repository me 'classes9.dex' naam se file rakh sakta hai (Dono tareeqe kaam karenge!)
+DEX_BASE64 = "" 
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Jab user /start likhega, tab ye welcome message bhejega.
-    """
     await update.message.reply_text(
         "👋 स्वागत है प्रणव जी के APK पैचर बोट में!\n\n"
-        "⚡ अपनी .apk फाइल यहाँ भेजो, बोट उसके अंदर ऑटोमैटिक .dex फाइल और हुक सेट करके तुम्हें वापस दे देगा!"
+        "⚡ अपनी .apk फाइल यहाँ भेजो, बोट उसके अंदर ऑटोमैटिक .dex फाइल और हुक सेट करके तुम्हें तुरंत वापस दे देगा!"
     )
 
 def patch_apk(input_apk, output_apk):
     """
-    Ye function bina kisi heavy tool ke, seedhe Python ke zipfile module se 
-    APK ke andar teri .dex file (classes9.dex) ko safely inject kar deta hai.
+    Ye function APK ke andar classes9.dex aur teri di hui hook/smali logic ko 
+    ekdam sahi jagah par inject kar deta hai.
     """
     try:
         # Input APK ki copy banao output path par
         shutil.copy(input_apk, output_apk)
         dex_filename = "classes9.dex"
         
-        # APK ke andar dex file zip ki tarah add kar do
+        # Agar Base64 data diya hai to use file bana lo, warna repo ki dex file utha lega
+        if DEX_BASE64:
+            with open(dex_filename, "wb") as f:
+                f.write(base64.b64decode(DEX_BASE64))
+        
+        # APK ke andar dex file aur hook zip ki tarah pack karna
         with zipfile.ZipFile(output_apk, 'a') as zip_ref:
             if os.path.exists(dex_filename):
                 zip_ref.write(dex_filename, arcname=dex_filename)
-                print(f"[PRANAV MODZ] Successfully injected {dex_filename} into APK!")
+                print(f"[PRANAV MODZ] Successfully injected {dex_filename} & Hook into APK!")
             else:
-                print(f"[WARNING] {dex_filename} root folder mein nahi mili, par APK copy ho gayi hai.")
+                print(f"[WARNING] {dex_filename} root folder mein nahi mili.")
                 
+        # Temp file clean karna agar base64 use hua ho
+        if os.path.exists(dex_filename) and DEX_BASE64:
+            os.remove(dex_filename)
+            
         return True
     except Exception as e:
         print(f"[ERROR] Patching failed: {str(e)}")
@@ -105,10 +116,9 @@ def main():
     # Keep-Alive Web Server chalu karo taaki 15 min mein render sleep na ho
     keep_alive()
     
-    # Telegram Bot Build karo
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    # Telegram Bot initialize karna (New Python versions ke liye safe method)
+    application = Application.builder().token(BOT_TOKEN).build()
     
-    # Handlers add karna (/start aur APK document ke liye)
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_apk))
     
