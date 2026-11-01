@@ -6,7 +6,6 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# गिटहब और रेंडर पर सुरक्षित रूप से एनवायरनमेंट वेरिएबल्स से डिटेल्स उठाना
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL")
@@ -166,11 +165,21 @@ def handle_ai_chat(message):
 def home():
     return "VIP AI Bot is running live successfully!"
 
+# Telegram Webhook Route for Render
+@app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
+
 if __name__ == "__main__":
-    import threading
-    bot_thread = threading.Thread(target=lambda: bot.infinity_polling(skip_pending=True))
-    bot_thread.daemon = True
-    bot_thread.start()
+    # Remove old webhook and set new webhook using Render URL
+    bot.remove_webhook()
+    # Render automatically provides your public URL or you can set it. Let's bind webhook:
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url:
+        bot.set_webhook(url=f"{render_url}/{TELEGRAM_BOT_TOKEN}")
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
